@@ -1,0 +1,17 @@
+{
+  "name": "map-agent",
+  "version": "1.0.0",
+  "description": "Autonomous game map creator and viral marketing machine",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "agent": "node agent/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2"
+  }
+}
