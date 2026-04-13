@@ -39,6 +39,20 @@
     @media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
     .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #7c3aed; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    #progressPanel { display: none; }
+    .stage-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid #1e1e3a; }
+    .stage-row:last-child { border-bottom: none; }
+    .stage-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; }
+    .stage-icon.pending { background: #1e1e3a; color: #4a4a7a; }
+    .stage-icon.running { background: #2d1b69; color: #a78bfa; border: 2px solid #7c3aed; animation: pulse 1.2s ease-in-out infinite; }
+    .stage-icon.done { background: #14532d; color: #4ade80; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.4); } 50% { box-shadow: 0 0 0 6px rgba(124,58,237,0); } }
+    .stage-label { flex: 1; font-size: 0.95rem; }
+    .stage-label.pending { color: #4a4a7a; }
+    .stage-label.running { color: #e0e0ff; font-weight: 600; }
+    .stage-label.done { color: #6b7280; }
+    .stage-time { font-size: 0.78rem; color: #4a4a7a; min-width: 48px; text-align: right; }
+    .stage-spin { display: inline-block; width: 12px; height: 12px; border: 2px solid #7c3aed; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
   </style>
 </head>
 <body>
@@ -52,6 +66,11 @@
       <h2>Run Agent</h2>
       <button id="runBtn" onclick="runAgent()">Launch Map Agent</button>
       <div id="status"></div>
+    </div>
+
+    <div id="progressPanel" class="card">
+      <h2>Agent Progress</h2>
+      <div id="stageList"></div>
     </div>
 
     <div id="results">
@@ -179,32 +198,118 @@
   </main>
 
   <script>
-    async function runAgent() {
+    const STAGES = [
+      { stage: 1, label: 'Trend Scan — finding top maps' },
+      { stage: 2, label: 'Player Behavior Analysis' },
+      { stage: 3, label: 'Opportunity Scoring' },
+      { stage: 4, label: 'Clone Engine — map concept' },
+      { stage: 5, label: 'Build Guide generation' },
+      { stage: 6, label: 'Marketing Package' },
+      { stage: 7, label: 'Influencer Emails (Gmail)' },
+      { stage: 8, label: 'Posting Calendar (Google Calendar)' },
+    ];
+
+    const stageTimes = {};
+
+    function initProgress() {
+      const list = document.getElementById('stageList');
+      list.textContent = '';
+      STAGES.forEach(s => {
+        const row = document.createElement('div');
+        row.className = 'stage-row';
+        row.id = 'stage-row-' + s.stage;
+
+        const icon = document.createElement('div');
+        icon.className = 'stage-icon pending';
+        icon.id = 'stage-icon-' + s.stage;
+        icon.textContent = s.stage;
+
+        const label = document.createElement('div');
+        label.className = 'stage-label pending';
+        label.id = 'stage-label-' + s.stage;
+        label.textContent = s.label;
+
+        const time = document.createElement('div');
+        time.className = 'stage-time';
+        time.id = 'stage-time-' + s.stage;
+
+        row.appendChild(icon);
+        row.appendChild(label);
+        row.appendChild(time);
+        list.appendChild(row);
+      });
+    }
+
+    function updateStage({ stage, status }) {
+      const icon = document.getElementById('stage-icon-' + stage);
+      const label = document.getElementById('stage-label-' + stage);
+      const time = document.getElementById('stage-time-' + stage);
+      if (!icon) return;
+
+      if (status === 'running') {
+        stageTimes[stage] = Date.now();
+        icon.className = 'stage-icon running';
+        const spin = document.createElement('span');
+        spin.className = 'stage-spin';
+        icon.textContent = '';
+        icon.appendChild(spin);
+        label.className = 'stage-label running';
+      } else if (status === 'done') {
+        const elapsed = stageTimes[stage] ? ((Date.now() - stageTimes[stage]) / 1000).toFixed(1) + 's' : '';
+        icon.className = 'stage-icon done';
+        icon.textContent = '✓';
+        label.className = 'stage-label done';
+        time.textContent = elapsed;
+      }
+    }
+
+    function runAgent() {
       const btn = document.getElementById('runBtn');
       const status = document.getElementById('status');
       const results = document.getElementById('results');
+      const panel = document.getElementById('progressPanel');
 
       btn.disabled = true;
       status.className = 'running';
-      status.innerHTML = '<span class="spinner"></span>Agent running... this takes 3–5 minutes';
+      const spin = document.createElement('span');
+      spin.className = 'spinner';
+      status.textContent = '';
+      status.appendChild(spin);
+      status.appendChild(document.createTextNode('Agent running...'));
       results.style.display = 'none';
+      panel.style.display = 'block';
+      initProgress();
 
-      try {
-        const res = await fetch('/api/agent', { method: 'POST' });
-        const json = await res.json();
+      const es = new EventSource('/api/agent/stream');
 
-        if (!json.success) throw new Error(json.error || 'Agent failed');
+      es.addEventListener('progress', e => {
+        updateStage(JSON.parse(e.data));
+      });
 
+      es.addEventListener('done', e => {
+        es.close();
+        const json = JSON.parse(e.data);
+        if (!json.success) {
+          status.className = 'error';
+          status.textContent = 'Error: ' + (json.error || 'Agent failed');
+          btn.disabled = false;
+          return;
+        }
         renderResults(json.data);
         status.className = '';
         status.textContent = 'Agent complete!';
         results.style.display = 'block';
-      } catch (err) {
-        status.className = 'error';
-        status.textContent = 'Error: ' + err.message;
-      } finally {
         btn.disabled = false;
-      }
+      });
+
+      es.addEventListener('error', e => {
+        es.close();
+        let msg = 'Connection error';
+        try { msg = JSON.parse(e.data).message; } catch (_) {}
+        status.className = 'error';
+        status.textContent = 'Error: ' + msg;
+        btn.disabled = false;
+      });
     }
 
     function renderResults(data) {
@@ -226,10 +331,22 @@
         document.getElementById('conceptTheme').textContent = concept.theme ?? '—';
         document.getElementById('conceptLoop').textContent = concept.coreLoop ?? '—';
         document.getElementById('conceptMechanic').textContent = concept.uniqueMechanic ?? '—';
-        document.getElementById('conceptHooks').innerHTML = (concept.retentionHooks || [])
-          .map(h => `<div style="margin-bottom:4px">• ${h}</div>`).join('');
-        document.getElementById('conceptWeapons').innerHTML = (concept.weapons || [])
-          .map(w => `<span class="badge">${w.name || w}</span>`).join('');
+        const hooksEl = document.getElementById('conceptHooks');
+        hooksEl.textContent = '';
+        (concept.retentionHooks || []).forEach(h => {
+          const d = document.createElement('div');
+          d.style.marginBottom = '4px';
+          d.textContent = '• ' + h;
+          hooksEl.appendChild(d);
+        });
+        const weaponsEl = document.getElementById('conceptWeapons');
+        weaponsEl.textContent = '';
+        (concept.weapons || []).forEach(w => {
+          const span = document.createElement('span');
+          span.className = 'badge';
+          span.textContent = w.name || w;
+          weaponsEl.appendChild(span);
+        });
       }
 
       // Build Guide
@@ -237,40 +354,98 @@
         document.getElementById('buildHours').textContent = (buildGuide.estimatedTotalHours ?? '—') + ' hrs';
         document.getElementById('buildDifficulty').textContent = buildGuide.difficulty ?? '—';
         document.getElementById('buildOverview').textContent = buildGuide.overview ?? '—';
-        document.getElementById('buildZones').innerHTML = (buildGuide.zones || [])
-          .map(z => `<div style="margin-bottom:8px"><strong>${z.name}</strong> — ${z.purpose} (${z.estimatedHours}h)</div>`).join('');
-        document.getElementById('buildMistakes').innerHTML = (buildGuide.commonMistakes || [])
-          .map(m => `<div style="margin-bottom:4px">• ${m}</div>`).join('');
+        const zonesEl = document.getElementById('buildZones');
+        zonesEl.textContent = '';
+        (buildGuide.zones || []).forEach(z => {
+          const d = document.createElement('div');
+          d.style.marginBottom = '8px';
+          const b = document.createElement('strong');
+          b.textContent = z.name;
+          d.appendChild(b);
+          d.appendChild(document.createTextNode(' — ' + z.purpose + ' (' + z.estimatedHours + 'h)'));
+          zonesEl.appendChild(d);
+        });
+        const mistakesEl = document.getElementById('buildMistakes');
+        mistakesEl.textContent = '';
+        (buildGuide.commonMistakes || []).forEach(m => {
+          const d = document.createElement('div');
+          d.style.marginBottom = '4px';
+          d.textContent = '• ' + m;
+          mistakesEl.appendChild(d);
+        });
       }
 
       // Marketing
       if (marketing) {
         // TikTok Scripts
-        const scripts = marketing.tiktokScripts || [];
-        document.getElementById('tiktokScripts').innerHTML = scripts.map(s => `
-          <div class="tiktok-script">
-            <div class="type">${s.type} · ${s.duration}</div>
-            <div class="line"><span>Hook:</span> ${s.hook}</div>
-            <div class="line"><span>CTA:</span> ${s.cta}</div>
-            <div class="line" style="margin-top:8px;font-size:0.82rem;color:#c4b5fd">${s.fullScript || ''}</div>
-          </div>`).join('');
+        const scriptsEl = document.getElementById('tiktokScripts');
+        scriptsEl.textContent = '';
+        (marketing.tiktokScripts || []).forEach(s => {
+          const wrap = document.createElement('div');
+          wrap.className = 'tiktok-script';
+          const type = document.createElement('div');
+          type.className = 'type';
+          type.textContent = (s.type || '') + ' · ' + (s.duration || '');
+          const hook = document.createElement('div');
+          hook.className = 'line';
+          const hookLabel = document.createElement('span');
+          hookLabel.textContent = 'Hook: ';
+          hook.appendChild(hookLabel);
+          hook.appendChild(document.createTextNode(s.hook || ''));
+          const cta = document.createElement('div');
+          cta.className = 'line';
+          const ctaLabel = document.createElement('span');
+          ctaLabel.textContent = 'CTA: ';
+          cta.appendChild(ctaLabel);
+          cta.appendChild(document.createTextNode(s.cta || ''));
+          const full = document.createElement('div');
+          full.className = 'line';
+          full.style.cssText = 'margin-top:8px;font-size:0.82rem;color:#c4b5fd';
+          full.textContent = s.fullScript || '';
+          wrap.appendChild(type);
+          wrap.appendChild(hook);
+          wrap.appendChild(cta);
+          wrap.appendChild(full);
+          scriptsEl.appendChild(wrap);
+        });
 
         // YouTube
         const yt = marketing.youtube || {};
         document.getElementById('ytTitle').textContent = yt.title ?? '—';
-        document.getElementById('ytTags').innerHTML = (yt.tags || [])
-          .map(t => `<span class="badge">${t}</span>`).join('');
+        const ytTagsEl = document.getElementById('ytTags');
+        ytTagsEl.textContent = '';
+        (yt.tags || []).forEach(t => {
+          const span = document.createElement('span');
+          span.className = 'badge';
+          span.textContent = t;
+          ytTagsEl.appendChild(span);
+        });
 
         // Hashtags
-        document.getElementById('tiktokHashtags').innerHTML = (marketing.hashtags?.tiktok || [])
-          .map(h => `<span class="badge">${h}</span>`).join('');
+        const hashEl = document.getElementById('tiktokHashtags');
+        hashEl.textContent = '';
+        (marketing.hashtags?.tiktok || []).forEach(h => {
+          const span = document.createElement('span');
+          span.className = 'badge';
+          span.textContent = h;
+          hashEl.appendChild(span);
+        });
 
         // Discord
         document.getElementById('discord').textContent = marketing.discordMessage ?? '—';
 
         // Reddit
-        document.getElementById('reddit').innerHTML = (marketing.redditPosts || [])
-          .map(r => `<div style="margin-bottom:10px"><strong>${r.subreddit}</strong> — ${r.title}</div>`).join('');
+        const redditEl = document.getElementById('reddit');
+        redditEl.textContent = '';
+        (marketing.redditPosts || []).forEach(r => {
+          const d = document.createElement('div');
+          d.style.marginBottom = '10px';
+          const b = document.createElement('strong');
+          b.textContent = r.subreddit;
+          d.appendChild(b);
+          d.appendChild(document.createTextNode(' — ' + r.title));
+          redditEl.appendChild(d);
+        });
       }
 
       // Raw JSON

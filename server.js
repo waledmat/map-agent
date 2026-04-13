@@ -25,6 +25,29 @@ app.post('/api/agent', async (req, res) => {
   }
 });
 
+app.get('/api/agent/stream', async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    console.log('[server] Agent run started (stream)');
+    const result = await runAgent((progress) => {
+      send('progress', progress);
+    });
+    console.log('[server] Agent run complete');
+    send('done', { success: true, data: result });
+  } catch (err) {
+    console.error('[server] Agent error:', err.message);
+    send('error', { message: err.message });
+  } finally {
+    res.end();
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Map Agent running at http://localhost:${PORT}`);
