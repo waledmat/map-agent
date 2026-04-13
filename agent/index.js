@@ -9,7 +9,7 @@ const mcpGmail = require('./mcps/gmail');
 const mcpCalendar = require('./mcps/calendar');
 
 function checkEnvVars() {
-  const required = ['ANTHROPIC_API_KEY'];
+  const required = ['OPENROUTER_API_KEY'];
   const optional = ['YOUTUBE_API_KEY', 'CURSEFORGE_API_KEY'];
 
   required.forEach(key => {
@@ -23,32 +23,40 @@ function checkEnvVars() {
   });
 }
 
-async function runAgent() {
+async function runAgent(onProgress = () => {}) {
   checkEnvVars();
 
-  console.log('[agent] Stage 1: Scanning trending maps...');
+  onProgress({ stage: 1, label: 'Scanning trending maps', status: 'running' });
   const trendData = await stage1TrendScan();
+  onProgress({ stage: 1, label: 'Scanning trending maps', status: 'done' });
 
-  console.log('[agent] Stage 2: Analyzing player behavior...');
+  onProgress({ stage: 2, label: 'Analyzing player behavior', status: 'running' });
   const analysisData = await stage2Analysis(trendData);
+  onProgress({ stage: 2, label: 'Analyzing player behavior', status: 'done' });
 
-  console.log('[agent] Stage 3: Scoring opportunities...');
+  onProgress({ stage: 3, label: 'Scoring opportunities', status: 'running' });
   const scoredData = await stage3Scoring(analysisData);
+  onProgress({ stage: 3, label: 'Scoring opportunities', status: 'done' });
 
-  console.log('[agent] Stage 4: Generating map concept...');
+  onProgress({ stage: 4, label: 'Generating map concept', status: 'running' });
   const concept = await stage4Clone(scoredData, analysisData);
+  onProgress({ stage: 4, label: 'Generating map concept', status: 'done' });
 
-  console.log('[agent] Stage 5: Writing build guide...');
+  onProgress({ stage: 5, label: 'Writing build guide', status: 'running' });
   const buildGuide = await stage5BuildGuide(concept);
+  onProgress({ stage: 5, label: 'Writing build guide', status: 'done' });
 
-  console.log('[agent] Stage 6: Creating marketing package...');
+  onProgress({ stage: 6, label: 'Creating marketing package', status: 'running' });
   const marketing = await stage6Marketing(concept, analysisData);
+  onProgress({ stage: 6, label: 'Creating marketing package', status: 'done' });
 
-  console.log('[agent] MCP: Sending influencer emails...');
+  onProgress({ stage: 7, label: 'Sending influencer emails', status: 'running' });
   await mcpGmail(marketing.influencerDMs);
+  onProgress({ stage: 7, label: 'Sending influencer emails', status: 'done' });
 
-  console.log('[agent] MCP: Creating posting calendar...');
+  onProgress({ stage: 8, label: 'Creating posting calendar', status: 'running' });
   await mcpCalendar(marketing.calendar);
+  onProgress({ stage: 8, label: 'Creating posting calendar', status: 'done' });
 
   return {
     opportunity: scoredData.winner,
