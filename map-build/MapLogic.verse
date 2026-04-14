@@ -66,8 +66,9 @@ quantum_circuit_manager := class(creative_device):
     # ──────────────────────────────────────────────────────────
     #  DYNAMIC CIRCUIT RECONFIGURATION  (every 90 seconds)
     # ──────────────────────────────────────────────────────────
-    OnReconfigTick(ignored : agent) : void =
-        set ReconfigPhase = Mod[ReconfigPhase + 1, 3]
+    OnReconfigTick(ignored : ?agent) : void =
+        if (NewPhase := Mod[ReconfigPhase + 1, 3]):
+            set ReconfigPhase = NewPhase
         ReconfigNotify.Show()
 
         if (ReconfigPhase = 0):
@@ -89,8 +90,8 @@ quantum_circuit_manager := class(creative_device):
     # ──────────────────────────────────────────────────────────
     #  GLITCH STORM  (every 150 seconds, lasts 15 seconds)
     # ──────────────────────────────────────────────────────────
-    OnGlitchTick(ignored : agent) : void =
-        if (not GlitchActive):
+    OnGlitchTick(ignored : ?agent) : void =
+        if (GlitchActive = false):
             spawn { RunGlitchStorm() }
 
     RunGlitchStorm()<suspends> : void =
