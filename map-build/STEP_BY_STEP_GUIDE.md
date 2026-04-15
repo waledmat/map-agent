@@ -78,20 +78,16 @@
 2. Place **8 spawn pads** in Zone 1 (Spawn Island)
 3. Settings for each: Team = Any, Respawn Delay = 3s
 
-### Weapons
-Place these weapons using **"Weapon Spawner"** devices:
+### Weapons (use Item Granter — easier than Weapon Spawner)
+Instead of floor weapon spawners, use the **WeaponGranter** Verse script to give weapons directly on spawn:
 
-| Weapon | Location | Quantity |
-|--------|----------|---------|
-| Pulse Rifle | Spawn Island + Core Hall walls | 4 total |
-| SMG | Spawn Island + Tower lower floors | 7 total |
-| Shotgun | Spawn Island + Core Hall corners | 6 total |
-| Sniper Rifle | Tower top & mid platforms | 4 total |
-| Grenade | Spawn Island + Core Hall center | 5 total |
+1. Search: **"Item Granter"** in Content Browser
+2. Place **2 Item Granter** devices anywhere in the scene
+3. Click Item Granter #1 → Details panel → set **Item = Pulse Rifle** (or SMG)
+4. Click Item Granter #2 → Details panel → set **Item = Shotgun**
+5. The WeaponGranter Verse script (Step 5b) connects these to spawn pads automatically
 
-Settings for each Weapon Spawner:
-- Respawn Time: 20-45 seconds (sniper = 45s, SMG = 20s)
-- Quantity: 1-2 per spawner
+> If you still want floor weapons too: search **"Item Spawner"**, place a few, set Item = any weapon, Respawn Time = 30s
 
 ### Neon Core Pickups
 1. Search: **"Item Spawner"**
@@ -154,6 +150,19 @@ Settings for each Weapon Spawner:
 6. **Copy all the text** from MapLogic.verse
 7. **Paste** it into UEFN's Verse editor
 8. Click **"Compile Verse"** (top toolbar) — wait for green checkmark
+
+---
+
+## STEP 5b — Add the WeaponGranter Script
+
+1. In Verse Explorer → right-click → **Add new Verse file** → name it `WeaponGranter`
+2. Open `map-build/WeaponGranter.verse` in Notepad → **Ctrl+A** → **Ctrl+C**
+3. Paste into UEFN Verse editor → **Ctrl+S** → **Compile Verse**
+4. Drag **"weapon_granter_manager"** device from Content Browser into the scene
+5. Click it → wire in Details panel:
+   - **PrimaryWeapon** → Item Granter #1 (Pulse Rifle)
+   - **SecondaryWeapon** → Item Granter #2 (Shotgun)
+   - **SpawnPad1–8** → each of your 8 Player Spawn Pads
 
 ---
 
